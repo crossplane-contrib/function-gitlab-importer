@@ -19,3 +19,12 @@
 
 # Go workspace file
 go.work
+
+# temporary files
+temp*.*
+
+# environment config
+*environment-config*
+
+# package-files
+*.xpkg

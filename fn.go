@@ -3,109 +3,88 @@ package main
 import (
 	"context"
 	"fmt"
-	"strconv"
 
+	"github.com/simon-fredrich/function-gitlab-importer/input/v1beta1"
+	"github.com/simon-fredrich/function-gitlab-importer/internal"
+	"github.com/simon-fredrich/function-gitlab-importer/internal/gitlabclient"
+	"github.com/simon-fredrich/function-gitlab-importer/internal/gvkimplementation"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/crossplane/function-sdk-go/errors"
 	"github.com/crossplane/function-sdk-go/logging"
 	fnv1 "github.com/crossplane/function-sdk-go/proto/v1"
+	"github.com/crossplane/function-sdk-go/request"
+	"github.com/crossplane/function-sdk-go/resource"
 	"github.com/crossplane/function-sdk-go/response"
-	"github.com/simon-fredrich/function-gitlab-importer/internal"
 )
 
 // Function returns whatever response you ask it to.
 type Function struct {
 	fnv1.UnimplementedFunctionRunnerServiceServer
 
+	Input  *v1beta1.Input
+	Client *gitlab.Client
+
 	log logging.Logger
 }
 
-const errorMessage = "create failed: cannot create Gitlab project: POST https://gitlab.com/api/v4/projects: 400 {message: {name: [has already been taken]}, {path: [has already been taken]}, {project_namespace.name: [has already been taken]}}"
-
 // RunFunction runs the Function.
 func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) (*fnv1.RunFunctionResponse, error) {
-	f.log.Info("Running function", "tag", req.GetMeta().GetTag())
-	rsp := response.To(req, response.DefaultTTL)
+	f.log.Debug("Running function", "tag", req.GetMeta().GetTag())
 
+	rsp := response.To(req, response.DefaultTTL)
+	in := &v1beta1.Input{}
+	f.Input = in
+	if err := request.GetInput(req, in); err != nil {
+		// You can set a custom status condition on the claim. This allows you to
+		// communicate with the user. See the link below for status condition
+		// guidance.
+		// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
+		response.ConditionFalse(rsp, "FunctionSuccess", "InternalError").
+			WithMessage("Something went wrong.").
+			TargetCompositeAndClaim()
+
+		// You can emit an event regarding the claim. This allows you to communicate
+		// with the user. Note that events should be used sparingly and are subject
+		// to throttling; see the issue below for more information.
+		// https://github.com/crossplane/crossplane/issues/5802
+		response.Warning(rsp, errors.New("something went wrong")).
+			TargetCompositeAndClaim()
+
+		response.Fatal(rsp, errors.Wrapf(err, "cannot get Function input from %T", req))
+		return rsp, nil
+	}
+
+	// get all resources from the request
 	resources, err := internal.GetResources(req)
 	if err != nil {
-		f.log.Info("Failed to extract observed and desired composed resources.",
+		f.log.Debug("Failed to extract observed and desired composed resources.",
 			"error", err,
 		)
-		response.Fatal(rsp, fmt.Errorf("cannot extract observed and desired composed resources: %v", err))
+		response.Fatal(rsp, fmt.Errorf("cannot extract observed and desired composed resources: %w", err))
 		return rsp, nil
 	}
 
 	// end function if no observed resource found
-	if len(resources.GetDesired()) == 0 {
-		f.log.Info("No desired resources found")
+	if len(resources.GetObserved()) == 0 {
+		f.log.Debug("No observed resources found")
 		return rsp, nil
 	}
 
-	f.log.Debug("desired resources found", "res", resources.GetDesired())
+	// end function if no desired resource found
+	if len(resources.GetDesired()) == 0 {
+		f.log.Debug("No desired resources found")
+		return rsp, nil
+	}
 
-	// steps to implement in a loop over observed resources
+	// process all resources and return those that need update
+	desResourcesWithUpdate := f.processResources(resources)
 
-	// 1.1 if APIVersion and Kind of observed resource relates to Gitlab-Project/-Group check its status.message
-	// 1.2 continue if status.message == 'create failed: cannot create Gitlab project: POST https://gitlab.com/api/v4/projects:
-	//       400 {message: {name: [has already been taken]}, {path: [has already been taken]},
-	//       {project_namespace.name: [has already been taken]}}'
-	// 1.3 use gitlab-import-test functions to find projectId and/or groupId depending on Kind
-	// 1.4 annotate external-name of observed resource
-
-	for name, obs := range resources.GetObserved() {
-		f.log.Debug("Information about observed resource",
-			"composition-resource-name", name,
-			"APIVersion", obs.Resource.GetAPIVersion(),
-			"Kind", obs.Resource.GetKind())
-
-		conditionSynced := obs.Resource.GetCondition("Synced")
-		if conditionSynced.Message == errorMessage {
-			f.log.Info("found error message")
-			obsGroup := obs.Resource.GroupVersionKind().Group
-			obsKind := obs.Resource.GroupVersionKind().Kind
-			if obsGroup == "projects.gitlab.crossplane.io" && obsKind == "Project" {
-				clientGitlab, err := internal.LoadClientGitlab()
-				if err != nil {
-					f.log.Debug("cannot get gitlab-client", "err", err)
-				}
-				f.log.Info("found project")
-
-				projectNamespace, err := resources.GetNamespaceId(name)
-				if err != nil || projectNamespace == -1 {
-					f.log.Debug("cannot get projectNamespace from resource", "err", err)
-				}
-				projectPath, err := resources.GetPath(name)
-				if err != nil || projectPath == "" {
-					f.log.Debug("cannog get projectPath from resource", "err", err)
-				}
-				projectId, err := internal.GetProject(clientGitlab, projectNamespace, projectPath)
-				if err != nil || projectId == -1 {
-					f.log.Debug("cannot get projectId from resource", "err", err)
-				}
-
-				f.log.Debug("Found projectId!", "projectId", projectId)
-
-				err = resources.SetExternalName(name, strconv.Itoa(projectId))
-				if err != nil {
-					f.log.Debug("external name cannot be set", "err", err)
-				}
-				f.log.Debug("external name has been set", "desired resource", resources.GetDesired()[name].Resource)
-
-				err = response.SetDesiredComposedResources(rsp, resources.GetDesired())
-				if err != nil {
-					f.log.Info("Failed to set desired composed resources.",
-						"error", err,
-						"desired", resources.GetDesired(),
-					)
-					response.Fatal(rsp, fmt.Errorf("cannot set desired composed resources in %v", err))
-					return rsp, nil
-				}
-				return rsp, nil
-			} else if obsGroup == "groups.gitlab.crossplane.io" && obsKind == "Group" {
-				f.log.Info("found group")
-			}
-		} else {
-			return rsp, nil
-		}
+	// Commit all changes once
+	if err := response.SetDesiredComposedResources(rsp, desResourcesWithUpdate); err != nil {
+		f.log.Debug("Failed to set desired composed resources", "err", err)
+		response.Fatal(rsp, fmt.Errorf("cannot set desired composed resources: %w", err))
 	}
 
 	// You can set a custom status condition on the claim. This allows you to
@@ -116,4 +95,120 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 		TargetCompositeAndClaim()
 
 	return rsp, nil
+}
+
+// processRecources processes gitlab related resources.
+func (f *Function) processResources(resources internal.Resources) map[resource.Name]*resource.DesiredComposed {
+	// define map to hold desired resources that need an update
+	desResourcesWithUpdate := make(map[resource.Name]*resource.DesiredComposed, len(resources.GetDesired()))
+
+	// iterate through observed resources and filter out gitlab related ones
+	for name, obs := range resources.GetObserved() {
+		log := f.log.WithValues("name", name)
+		log.Debug("Processing resource")
+
+		// only process relevant resources
+		obsGVK := obs.Resource.GetObjectKind().GroupVersionKind()
+		if !gvkimplementation.IsAllowed(obsGVK) {
+			continue
+		}
+
+		// ensure there is a matching desired resource we can update
+		des, ok := resources.GetDesired()[name]
+		if !ok {
+			log.Debug("no corresponding desired resource found; skipping")
+			continue
+		}
+
+		if err := f.ensureExternalName(name, obs, des, obsGVK); err != nil {
+			log.Debug("Failed to ensure external-name", "err", err)
+			continue
+		}
+
+		desResourcesWithUpdate[name] = des
+	}
+	return desResourcesWithUpdate
+}
+
+func (f *Function) ensureExternalName(name resource.Name, obs resource.ObservedComposed, des *resource.DesiredComposed, obsGKV schema.GroupVersionKind) error {
+	log := f.log.WithValues("name", name, "GKV", obsGKV)
+	// Test if external-name already present on observed and if resource need management.
+	externalName := internal.GetExternalNameFromObserved(obs)
+	externalNameAnnotationString := "crossplane.io/managed-external-name"
+	managed, err := internal.GetBoolAnnotation(obs, externalNameAnnotationString)
+	if err != nil {
+		log.Debug("cannot get annotation", "external-name annotation string", externalNameAnnotationString, "err", err)
+	}
+	if externalName != "" && managed {
+		log.Debug("Copy external-name from observed to desired composed resource...")
+		if err := internal.SetExternalNameOnDesired(des, externalName); err != nil {
+			return err
+		}
+		err := internal.SetManagedValues(des, f.Input)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// If external-name not present try to import it using a fitting importer implementation.
+<<<<<<< HEAD
+	obsGroup := obs.Resource.GetObjectKind().GroupVersionKind().Group
+	var resourceImporter importer.Importer
+	var handler handler.Handler
+	switch obsGroup {
+	case "projects.gitlab.crossplane.io":
+		handler = &gitlabhandler.ProjectHandler{}
+		resourceImporter = &gitlabimporter.ProjectImporter{}
+	case "groups.gitlab.crossplane.io":
+		handler = &gitlabhandler.GroupHandler{}
+		resourceImporter = &gitlabimporter.GroupImporter{}
+	default:
+		return errors.Errorf("group does not have an importer: %s", obsGroup)
+=======
+	impl, ok := gvkimplementation.LookupByGKV(obsGKV)
+	if !ok {
+		return nil
+>>>>>>> 1440fa7 (cleanup handling of resource specific implementations)
+	}
+
+	msg, exists := impl.Handler.CheckResourceExists(obs)
+	if exists {
+		log.Debug("Resource already exists; importing external-name", "msg", msg)
+		if f.Client == nil {
+			// supply function with gitlab client
+			client, err := gitlabclient.LoadClient(f.Input)
+			if err != nil {
+				log.Debug("cannot supply function with gitlab client", "err", err)
+				return errors.Errorf("cannot initialize gitlab client: %w", err)
+			}
+			f.Client = client
+		}
+		// supply importer with client
+		err := impl.Importer.PassClient(f.Client)
+		if err != nil {
+			return err
+		}
+		externalName, err := impl.Importer.Import(des)
+		if err != nil {
+			return err
+		}
+
+		fullPath, err := impl.Importer.GetContext()
+		if err != nil {
+			return err
+		}
+		log.Info("Resource successfully imported!", "external-name", externalName, "fullPath", fullPath)
+		if err := internal.SetExternalNameOnDesired(des, externalName); err != nil {
+			return err
+		}
+		err = internal.SetManagedValues(des, f.Input)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	return errors.Errorf("external-name could not be set: %s", msg)
 }

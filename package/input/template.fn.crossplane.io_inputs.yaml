@@ -19,31 +19,33 @@ spec:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: Input can be used to provide input to this Function.
+        description: input can be used to provide input to this function.
         properties:
-          apiVersion:
+          apiversion:
             description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
+              apiversion defines the versioned schema of this representation of an object.
+              servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+              more info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
-          example:
-            description: Example is an example field. Replace it with whatever input
-              you need. :)
+          baseURL:
+            description: baseURL provides the baseURL to the gitlab instance.
             type: string
+          managementPolicies:
+            description: List which managementPolicies the imported resources should recieve. "Observe" is set by default.
+            type: array
+            items:
+              type: string
           kind:
             description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+              kind is a string value representing the rest resource this object represents.
+              servers may infer this from the endpoint the client submits requests to.
+              cannot be updated.
+              in camelcase.
+              more info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
-        required:
-        - example
         type: object
     served: true
     storage: true

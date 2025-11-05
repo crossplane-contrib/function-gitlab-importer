@@ -1,11 +1,11 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
-  name: simple-function
+  name: simple-project
 spec:
   compositeTypeRef:
     apiVersion: gitlab.example.org/v1alpha1
-    kind: SimpleFunction
+    kind: SimpleProject
   mode: Pipeline
   pipeline:
     - step: render-templates
@@ -21,9 +21,9 @@ spec:
             apiVersion: projects.gitlab.crossplane.io/v1alpha1
             kind: Project
             metadata:
-              name: {{ .observed.composite.resource.spec.projectName }}
+              name: {{ .observed.composite.resource.metadata.name }}
               annotations:
-                gotemplating.fn.crossplane.io/composition-resource-name: {{ .observed.composite.resource.spec.projectName }}-crn
+                gotemplating.fn.crossplane.io/composition-resource-name: {{ .observed.composite.resource.spec.projectName }}-{{ .observed.composite.resource.metadata.name }}-crn
             spec:
               forProvider:
                 name: {{ .observed.composite.resource.spec.projectName }}
@@ -31,9 +31,9 @@ spec:
                 namespaceId: {{ .observed.composite.resource.spec.namespaceId}}
               providerConfigRef:
                 name: gitlab-provider
-              writeConnectionSecretToRef:
-                name: {{ .observed.composite.resource.spec.projectName }}-secret
-                namespace: crossplane-system
     - step: check-template
       functionRef:
         name: function-gitlab-importer
+    - step: ensure-readiness
+      functionRef:
+        name: crossplane-contrib-function-auto-ready

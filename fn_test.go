@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/simon-fredrich/function-gitlab-importer/internal/testutils"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -16,6 +17,12 @@ import (
 )
 
 func TestRunFunction(t *testing.T) {
+	filename := "external-name-existing.json"
+	externalNameExistingData, err := testutils.LoadDataFromFile(filename)
+	if err != nil {
+		t.Errorf("cannot load data from file %s: %s", filename, err.Error())
+	}
+	externalNameExisting := string(externalNameExistingData)
 
 	type args struct {
 		ctx context.Context
@@ -31,34 +38,29 @@ func TestRunFunction(t *testing.T) {
 		args   args
 		want   want
 	}{
-		"ResponseIsReturned": {
-			reason: "The Function should return a fatal result if no input was specified",
+		"RetainDesiredCompositeExternalName": {
+			reason: "function should return the desired composed resource without any changes",
 			args: args{
 				req: &fnv1.RunFunctionRequest{
-					Meta: &fnv1.RequestMeta{Tag: "hello"},
-					Input: resource.MustStructJSON(`{
-						"apiVersion": "template.fn.crossplane.io/v1beta1",
-						"kind": "Input",
-						"example": "Hello, world"
-					}`),
+					Meta: &fnv1.RequestMeta{Tag: "external-name"},
+					Observed: &fnv1.State{
+						Composite: &fnv1.Resource{
+							Resource: resource.MustStructJSON(externalNameExisting),
+						},
+					},
+					Desired: &fnv1.State{
+						Composite: &fnv1.Resource{
+							Resource: resource.MustStructJSON(externalNameExisting),
+						},
+					},
 				},
 			},
 			want: want{
 				rsp: &fnv1.RunFunctionResponse{
-					Meta: &fnv1.ResponseMeta{Tag: "hello", Ttl: durationpb.New(response.DefaultTTL)},
-					Results: []*fnv1.Result{
-						{
-							Severity: fnv1.Severity_SEVERITY_NORMAL,
-							Message:  "I was run with input \"Hello, world\"!",
-							Target:   fnv1.Target_TARGET_COMPOSITE.Enum(),
-						},
-					},
-					Conditions: []*fnv1.Condition{
-						{
-							Type:   "FunctionSuccess",
-							Status: fnv1.Status_STATUS_CONDITION_TRUE,
-							Reason: "Success",
-							Target: fnv1.Target_TARGET_COMPOSITE_AND_CLAIM.Enum(),
+					Meta: &fnv1.ResponseMeta{Tag: "external-name", Ttl: durationpb.New(response.DefaultTTL)},
+					Desired: &fnv1.State{
+						Composite: &fnv1.Resource{
+							Resource: resource.MustStructJSON(externalNameExisting),
 						},
 					},
 				},
