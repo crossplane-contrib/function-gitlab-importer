@@ -134,7 +134,7 @@ func (f *Function) ensureExternalName(name resource.Name, obs resource.ObservedC
 	log := f.log.WithValues("name", name, "GKV", obsGKV)
 	// Test if external-name already present on observed and if resource need management.
 	externalName := internal.GetExternalNameFromObserved(obs)
-	externalNameAnnotationString := "crossplane.io/managed-external-name"
+	externalNameAnnotationString := "function-gitlab-importer/managed-external-name"
 	managed, err := internal.GetBoolAnnotation(obs, externalNameAnnotationString)
 	if err != nil {
 		log.Debug("cannot get annotation", "external-name annotation string", externalNameAnnotationString, "err", err)
@@ -152,24 +152,9 @@ func (f *Function) ensureExternalName(name resource.Name, obs resource.ObservedC
 	}
 
 	// If external-name not present try to import it using a fitting importer implementation.
-<<<<<<< HEAD
-	obsGroup := obs.Resource.GetObjectKind().GroupVersionKind().Group
-	var resourceImporter importer.Importer
-	var handler handler.Handler
-	switch obsGroup {
-	case "projects.gitlab.crossplane.io":
-		handler = &gitlabhandler.ProjectHandler{}
-		resourceImporter = &gitlabimporter.ProjectImporter{}
-	case "groups.gitlab.crossplane.io":
-		handler = &gitlabhandler.GroupHandler{}
-		resourceImporter = &gitlabimporter.GroupImporter{}
-	default:
-		return errors.Errorf("group does not have an importer: %s", obsGroup)
-=======
 	impl, ok := gvkimplementation.LookupByGKV(obsGKV)
 	if !ok {
 		return nil
->>>>>>> 1440fa7 (cleanup handling of resource specific implementations)
 	}
 
 	msg, exists := impl.Handler.CheckResourceExists(obs)

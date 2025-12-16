@@ -97,7 +97,9 @@ func SetBoolAnnotation(des *resource.DesiredComposed, key string, value bool) {
 
 // GetBoolAnnotation retrieves a boolean value from annotations of observed composed resource.
 // It expects the annotation values which are supported by strconv.ParseBool accepts.
-// Returns (value, nil) if the annotation exists and is valid, otherwise (false, error).
+// - Returns (false, error) if either annotations cannot be found or the value cannot be parsed.
+// - Returns (value, nil) if the annotation exists and can be converted to boolean type.
+// - Returns (false, nil) if the annotation does not exist.
 func GetBoolAnnotation(obs resource.ObservedComposed, key string) (bool, error) {
 	annotations := obs.Resource.GetAnnotations()
 	if annotations == nil {
@@ -123,7 +125,7 @@ func GetBoolAnnotation(obs resource.ObservedComposed, key string) (bool, error) 
 // to either observe-only by default or set additional policies provided as input.
 func SetManagedValues(des *resource.DesiredComposed, in *v1beta1.Input) error {
 	// Mark resource to have its external-name managed.
-	SetBoolAnnotation(des, "crossplane.io/managed-external-name", true)
+	SetBoolAnnotation(des, "function-gitlab-importer/managed-external-name", true)
 
 	// Configure managementPolicies
 	managementPolicies := []string{"Observe"}

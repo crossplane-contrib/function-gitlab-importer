@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - release-*
+    tags:
+      - "v*"
   pull_request: {}
   workflow_dispatch:
     inputs:
@@ -30,7 +32,7 @@ env:
   XPKG: ghcr.io/${{ github.repository}}
 
   # The package version to push. The default is 0.0.0-gitsha.
-  XPKG_VERSION: ${{ inputs.version }}
+  XPKG_VERSION: ${{ inputs.version || github.ref_type == 'tag' && github.ref_name || '' }}
 
 jobs:
   lint:
