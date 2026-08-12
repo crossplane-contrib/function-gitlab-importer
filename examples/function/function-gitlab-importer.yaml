@@ -3,7 +3,7 @@ kind: Function
 metadata:
   name: function-gitlab-importer
 spec:
-  package: ghcr.io/simon-fredrich/function-gitlab-importer:v0.0.0-20251205162922-6acecfb7b11a
+  package: ghcr.io/crossplane-contrib/function-gitlab-importer:v0.0.0-20251205162922-6acecfb7b11a
   runtimeConfigRef:
     name: gitlab-credentials-config
 ---
