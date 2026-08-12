@@ -109,7 +109,7 @@ func GetGroup(client *gitlab.Client, namespaceID int, path string) (int, error) 
 	}
 	for _, group := range groups {
 		if group.Path == path {
-			return group.ID, nil
+			return int(group.ID), nil
 		}
 	}
 	return -1, errors.Errorf("there is no group with matching path in parent group with id: %+v", parentID)
@@ -126,7 +126,7 @@ func getSubGroups(client *gitlab.Client, groupID int) ([]*gitlab.Group, error) {
 			AllAvailable: gitlab.Ptr(true),
 			ListOptions: gitlab.ListOptions{
 				PerPage: 10,
-				Page:    page,
+				Page:    int64(page),
 			},
 		}
 

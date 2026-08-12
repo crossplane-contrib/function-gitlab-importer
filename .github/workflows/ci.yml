@@ -16,9 +16,9 @@ on:
 
 env:
   # Common versions
-  GO_VERSION: '1.24.11'
-  GOLANGCI_VERSION: 'v2.4.0'
-  DOCKER_BUILDX_VERSION: 'v0.24.0'
+  GO_VERSION: "1.26.5"
+  GOLANGCI_VERSION: "v2.4.0"
+  DOCKER_BUILDX_VERSION: "v0.24.0"
 
   # These environment variables are important to the Crossplane CLI install.sh
   # script. They determine what version it installs.
@@ -39,30 +39,30 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: false  # The golangci-lint action does its own caching.
 
       - name: Check go mod tidy
         run: go mod tidy && git diff --exit-code go.mod go.sum
 
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_VERSION}
+
       - name: Lint
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: ${{ env.GOLANGCI_VERSION }}
+        run: golangci-lint run
 
   unit-test:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -83,32 +83,31 @@ jobs:
           - arm64
     steps:
       - name: Setup QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: all
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
         with:
           version: ${{ env.DOCKER_BUILDX_VERSION }}
           install: true
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # We ask Docker to use GitHub Action's native caching support to speed up
       # the build, per https://docs.docker.com/build/cache/backends/gha/.
       - name: Build Runtime
         id: image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/${{ matrix.arch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           target: image
-          build-args:
-            GO_VERSION=${{ env.GO_VERSION }}
+          build-args: GO_VERSION=${{ env.GO_VERSION }}
           outputs: type=docker,dest=runtime-${{ matrix.arch }}.tar
 
       - name: Setup the Crossplane CLI
@@ -136,7 +135,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download Single-Platform Packages
         uses: actions/download-artifact@v4
@@ -150,7 +149,7 @@ jobs:
         run: "curl -sL https://raw.githubusercontent.com/crossplane/crossplane/master/install.sh | sh"
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
