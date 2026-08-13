@@ -109,7 +109,7 @@ func GetProject(client *gitlab.Client, namespaceID int, path string) (int, error
 	}
 	for _, project := range projects {
 		if project.Path == path {
-			return project.ID, nil
+			return int(project.ID), nil
 		}
 	}
 	return -1, errors.Errorf("there is no project with matching path in namespace with ID %+v", namespaceID)
@@ -126,7 +126,7 @@ func getProjects(client *gitlab.Client, groupID int, searchTerm string) ([]*gitl
 			Search: gitlab.Ptr(searchTerm),
 			ListOptions: gitlab.ListOptions{
 				PerPage: 10,
-				Page:    page,
+				Page:    int64(page),
 			},
 		}
 
