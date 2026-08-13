@@ -1,5 +1,5 @@
 # function-gitlab-importer
-[![CI](https://github.com/simon-fredrich/function-gitlab-importer/actions/workflows/ci.yml/badge.svg)](https://github.com/simon-fredrich/function-gitlab-importer/actions/workflows/ci.yml)
+[![CI](https://github.com/crossplane-contrib/function-gitlab-importer/actions/workflows/ci.yml/badge.svg)](https://github.com/crossplane-contrib/function-gitlab-importer/actions/workflows/ci.yml)
 
 ## Overview
 This [composition function][docs-functions] allows you to auto-import GitLab groups/projects into your crossplane environment if they already exist in your account. It works with CustomResourceDefinitions provided by [provider-gitlab][provider-gitlab] but can be easily extended to work with other definitions if desired. The function works best when used as a pipeline-step within a crossplane composition.
@@ -81,7 +81,7 @@ kind: Function
 metadata:
   name: function-gitlab-importer
 spec:
-  package: ghcr.io/simon-fredrich/function-gitlab-importer:v0.3.0
+  package: ghcr.io/crossplane-contrib/function-gitlab-importer:v0.3.0
   runtimeConfigRef:
     name: gitlab-credentials-config
 ```
@@ -186,7 +186,7 @@ metadata:
     render.crossplane.io/runtime: Development
 spec:
   # This is ignored when using the Development runtime.
-  package: ghcr.io/simon-fredrich/function-gitlab-importer:<tag>
+  package: ghcr.io/crossplane-contrib/function-gitlab-importer:<tag>
 ```
 ### Environment Variables
 The `baseURL` can also be specified within the environment as a standard for every function-call. If it is neither specified in the input nor in the environment, the function will fall back to `https://gitlab.com`. Your authentication `token` can only be specified in the environment for security reasons. For that you have to specify the following variables.
