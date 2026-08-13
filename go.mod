@@ -2,7 +2,7 @@ module github.com/simon-fredrich/function-gitlab-importer
 
 go 1.24.5
 
-toolchain go1.24.11
+toolchain go1.26.5
 
 require (
 	github.com/alecthomas/kong v0.9.0
