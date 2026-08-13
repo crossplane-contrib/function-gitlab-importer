@@ -8,7 +8,7 @@ metadata:
     render.crossplane.io/runtime: Development
 spec:
   # This is ignored when using the Development runtime.
-  package: ghcr.io/simon-fredrich/function-gitlab-importer:v1alpha1
+  package: ghcr.io/crossplane-contrib/function-gitlab-importer:v1alpha1
 ---
 apiVersion: pkg.crossplane.io/v1beta1
 kind: Function
