@@ -10,7 +10,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	gitlab.com/gitlab-org/api/client-go v1.46.0
 	google.golang.org/protobuf v1.36.12
-	k8s.io/apimachinery v0.36.3
+	k8s.io/apimachinery v0.37.0
 	sigs.k8s.io/controller-tools v0.21.0
 )
 
