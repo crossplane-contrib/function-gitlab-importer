@@ -8,7 +8,7 @@ import (
 	"github.com/simon-fredrich/function-gitlab-importer/internal"
 	"github.com/simon-fredrich/function-gitlab-importer/internal/gitlabclient"
 	"github.com/simon-fredrich/function-gitlab-importer/internal/gvkimplementation"
-	gitlab "gitlab.com/gitlab-org/api/client-go"
+	gitlab "gitlab.com/gitlab-org/api/client-go/v2"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/crossplane/function-sdk-go/errors"

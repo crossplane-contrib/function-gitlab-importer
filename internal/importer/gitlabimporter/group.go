@@ -5,7 +5,7 @@ import (
 
 	"github.com/simon-fredrich/function-gitlab-importer/internal"
 	"github.com/simon-fredrich/function-gitlab-importer/internal/handler/gitlabhandler"
-	gitlab "gitlab.com/gitlab-org/api/client-go"
+	gitlab "gitlab.com/gitlab-org/api/client-go/v2"
 
 	"github.com/crossplane/function-sdk-go/errors"
 	"github.com/crossplane/function-sdk-go/resource"
